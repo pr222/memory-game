@@ -87,6 +87,9 @@ template.innerHTML = `
  * Define the custom element.
  */
 customElements.define('some-tiles',
+  /**
+   * Anonymous class of this element.
+   */
   class extends HTMLElement {
     /**
      * Makes an instance of this type.
