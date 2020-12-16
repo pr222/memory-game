@@ -4,3 +4,10 @@
  * @author Pauliina Raitaniemi <pr222ja@student.lnu.se>
  * @version 1.0.0
  */
+
+import './components/some-tiles/'
+import './components/a-memory-game/'
+
+const tile = document.createElement('some-tiles')
+
+document.querySelector('body').appendChild(tile)
