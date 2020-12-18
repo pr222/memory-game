@@ -29,7 +29,7 @@ Size and default border styles are changed on the element itself (host).
 
 The backside of the card is styleable with the part `backSide`.
 
-The frontside of the card is styleable with the part `frontSide`.
+The frontside of the card is styleable with the part `frontSide` and a img-element can be added to one available slot.
 
 ## Example
 (```html

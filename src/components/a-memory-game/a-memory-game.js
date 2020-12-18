@@ -58,13 +58,13 @@ template.innerHTML = `
       margin: 0 auto;
   }
 
-  #grid2x2 {
+  #grid2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     justify-items: center;
   }
 
-  #grid4x2, #grid4x4 {
+  #grid4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     justify-items: center;
@@ -80,20 +80,16 @@ template.innerHTML = `
     <div id="startMenu">
         <h1>Choose your game:</h1>
         <ul>
-            <li><button type="button" id="button2x2">2x2</button></li>
-            <li><button type="button" id="button4x2">4x2</button></li>
-            <li><button type="button" id="button4x4">4x4</button></li>
+            <li><button type="button" id="buttonSmall">2x2</button></li>
+            <li><button type="button" id="buttonMedium">4x2</button></li>
+            <li><button type="button" id="buttonBig">4x4</button></li>
         </ul>
     </div>
     <div id="resultWrapper">
         <h1>You made it!</h1>
         <button type="button" id="resetButton">Reset</button>
     </div>
-    <div id="gridWrapper">
-        <div id="grid2x2"></div>
-        <div id="grid4x2"></div>
-        <div id="grid4x4"></div>
-    </div>
+    <div id="gridWrapper"></div>
   </div>
 `
 /**
@@ -114,28 +110,26 @@ customElements.define('a-memory-game',
       this.attachShadow({ mode: 'open' })
         .appendChild(template.content.cloneNode(true))
 
-      this._wrapper = this.shadowRoot.querySelector('#mainWrapper')
+      this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
-      this._smallGrid = this.shadowRoot.querySelector('#grid2x2')
-      this._mediumGrid = this.shadowRoot.querySelector('#grid4x2')
-      this._bigGrid = this.shadowRoot.querySelector('#grid4x4')
+      this._grid = this.shadowRoot.querySelector('#gridWrapper')
 
       this._onClick = this._onClick.bind(this)
-      this._renderCards = this._renderCards.bind(this)
+      this._renderGrid = this._renderGrid.bind(this)
     }
 
     /**
      * Called when the element has been insterted into the DOM.
      */
     connectedCallback () {
-      this._wrapper.addEventListener('click', this._onClick)
+      this._app.addEventListener('click', this._onClick)
     }
 
     /**
      * Called when the element has been removed from the DOM.
      */
     disconnectedCallback () {
-      this._wrapper.removeEventListener('click', this._onClick)
+      this._app.removeEventListener('click', this._onClick)
     }
 
     /**
@@ -147,17 +141,17 @@ customElements.define('a-memory-game',
         console.log('Click event!')
 
         // When choosing which game to start.
-        if (event.target.id === 'button2x2') {
+        if (event.target.id === 'buttonSmall') {
             nrOfCards = 4
-            this._renderCards('2x2')
+            this._renderGrid('small')
             // Start timer
-        } else if (event.target.id === 'button4x2') {
+        } else if (event.target.id === 'buttonMedium') {
             nrOfCards = 8
-            this._renderCards('4x2')
+            this._renderGrid('medium')
             // Start timer
-        } else if (event.target.id === 'button4x4') {
+        } else if (event.target.id === 'buttonBig') {
             nrOfCards = 16
-            this._renderCards('4x4')
+            this._renderGrid('big')
             // Start timer
         }
 
@@ -173,9 +167,13 @@ customElements.define('a-memory-game',
      *
      */
     _resetGame () {
-        console.log('Resetting the game...')
+        // Remove all  html within the grid wrapper.
+        this._grid.innerHTML = ''
+
+        // Reset number of cards in play.
         nrOfCards = 0
-        console.log(nrOfCards)
+
+        // Display the starting menu.
         this._startMenu.classList.remove('hidden')
     }
 
@@ -184,36 +182,39 @@ customElements.define('a-memory-game',
      *
      * @param {string} grid - What type of grid should be displayed.
      */
-    _renderCards(grid) {
+    _renderGrid(newGrid) {
         // this._startMenu.classList.add('hidden')
+        const grid = document.createElement('div')
 
-        switch(grid) {
-            case '2x2':
-                console.log('Render a 2x2 grid.')
-                
-                console.log(nrOfCards)
+        if (newGrid === 'small') {
+            grid.setAttribute('id', 'grid2')
+
+            this._grid.appendChild(grid)
+
+            // Fill grid up to 2x2.
+            for (let i = 0; i < nrOfCards; i++) {
+                    const anImg = document.createElement('some-tiles')
+                    grid.appendChild(anImg)
+                }
+        } else {
+            // Both medium and big grids has the same nr of columns.
+            grid.setAttribute('id', 'grid4')
+
+            this._grid.appendChild(grid)
+
+            if (newGrid === 'medium') {
+                // Fill grid up to 4x2.
                 for (let i = 0; i < nrOfCards; i++) {
                     const anImg = document.createElement('some-tiles')
-                    this._smallGrid.appendChild(anImg)
-                }         
-                break
-            case '4x2':
-                console.log('Render a 4x2 grid.')
-                console.log(nrOfCards)
-                for (let i = 0; i < nrOfCards; i++) {
-                    const anImg2 = document.createElement('some-tiles')
-                    this._mediumGrid.appendChild(anImg2)
+                    grid.appendChild(anImg)
                 }
-                break
-            case '4x4':
-                console.log('Render a 4x4 grid.')
-                console.log(nrOfCards)
+            } else {
+                // Fill grid up to 4x4.
                 for (let i = 0; i < nrOfCards; i++) {
-                    const anImg3 = document.createElement('some-tiles')
-                    this._bigGrid.appendChild(anImg3)
+                    const anImg = document.createElement('some-tiles')
+                    grid.appendChild(anImg)
                 }
-                break
-        }
-
+            }
+        } 
     }
  })
