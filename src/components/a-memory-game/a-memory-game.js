@@ -105,6 +105,7 @@ template.innerHTML = `
     <div id="gridWrapper"></div>
   </div>
 `
+
 /**
  * Define the custom element.
  */
@@ -124,6 +125,7 @@ customElements.define('a-memory-game',
         .appendChild(template.content.cloneNode(true))
 
       this._cardsInPlay = 0
+      this._images = []
 
       this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
@@ -158,14 +160,17 @@ customElements.define('a-memory-game',
         // When choosing which game to start.
         if (event.target.id === 'buttonSmall') {
             this._cardsInPlay = 4
+            this._createImages(this._cardsInPlay/2)
             this._renderGrid('small')
             // Start timer
         } else if (event.target.id === 'buttonMedium') {
             this._cardsInPlay = 8
+            this._createImages(this._cardsInPlay/2)
             this._renderGrid('medium')
             // Start timer
         } else if (event.target.id === 'buttonBig') {
             this._cardsInPlay = 16
+            this._createImages(this._cardsInPlay/2)
             this._renderGrid('big')
             // Start timer
         }
@@ -174,6 +179,27 @@ customElements.define('a-memory-game',
         if (event.target.id === 'resetButton') {
             this._resetGame()
             // Stop timer
+        }
+    }
+
+    _createImages (imagesToUse) {
+        for (let i = 0; i < imagesToUse; i++) {
+            const image = IMG_URLS[i]
+            this._images.push(image)
+        }
+        const copy = this._images
+
+        this._images.push(...copy)
+        console.log(this._images)
+
+        // Now mix them up!
+        let newPlacing, temporaryPlacing
+
+        for (let i = this._images.length-1; i > 0; i--) {
+            newPlacing = Math.floor(Math.random() * (i + 1))
+            temporaryPlacing = this._images[i]
+            this._images[i] = this._images[newPlacing]
+            this._images[newPlacing] = temporaryPlacing
         }
     }
 
@@ -187,6 +213,9 @@ customElements.define('a-memory-game',
 
         // Reset number of cards in play.
         this._cardsInPlay = 0
+
+        // Empty the array of current images.
+        this._images = []
 
         // Display the starting menu.
         this._startMenu.classList.remove('hidden')
@@ -208,8 +237,17 @@ customElements.define('a-memory-game',
 
             // Fill grid up to 2x2.
             for (let i = 0; i < this._cardsInPlay; i++) {
-                    const anImg = document.createElement('some-tiles')
-                    grid.appendChild(anImg)
+                    const tile = document.createElement('some-tiles')
+                    const image = document.createElement('img')
+                    const srcLink = this._images[i]
+                    console.log(srcLink)
+                    image.setAttribute('src', `${srcLink}`)
+
+                    tile.appendChild(image)
+                    // console.log('What image?' + this._images[i].src)
+                    // console.log(this._images)
+                    // tile.appendChild(this._images[i].src)
+                    grid.appendChild(tile)
                 }
         } else {
             // Both medium and big grids has the same nr of columns.
@@ -220,14 +258,32 @@ customElements.define('a-memory-game',
             if (newGrid === 'medium') {
                 // Fill grid up to 4x2.
                 for (let i = 0; i < this._cardsInPlay; i++) {
-                    const anImg = document.createElement('some-tiles')
-                    grid.appendChild(anImg)
+                    const tile = document.createElement('some-tiles')
+                    const image = document.createElement('img')
+                    const srcLink = this._images[i]
+                    console.log(srcLink)
+                    image.setAttribute('src', `${srcLink}`)
+
+                    tile.appendChild(image)
+                    // console.log('What image?' + this._images[i].src)
+                    // console.log(this._images)
+                    // tile.appendChild(this._images[i].src)
+                    grid.appendChild(tile)
                 }
             } else {
                 // Fill grid up to 4x4.
                 for (let i = 0; i < this._cardsInPlay; i++) {
-                    const anImg = document.createElement('some-tiles')
-                    grid.appendChild(anImg)
+                    const tile = document.createElement('some-tiles')
+                    const image = document.createElement('img')
+                    const srcLink = this._images[i]
+                    console.log(srcLink)
+                    image.setAttribute('src', `${srcLink}`)
+
+                    tile.appendChild(image)
+                    // console.log('What image?' + this._images[i].src)
+                    // console.log(this._images)
+                    // tile.appendChild(this._images[i].src)
+                    grid.appendChild(tile)
                 }
             }
         } 
