@@ -5,8 +5,17 @@
  * @version 1.0.0
  */
 
-const backImg = (new URL('img/0.png', import.meta.url)).href
-let nrOfCards = 0
+// Create all the needed URLs for the game.
+const BACKSIDE_URL = (new URL('img/memory-game-00.png', import.meta.url)).href
+
+const IMG_URLS = []
+
+const maxImages = 8
+
+for (let i = 1; i <= maxImages; i++) {
+    const IMG = (new URL(`img/memory-game-0${i}.png`, import.meta.url)).href
+    IMG_URLS.push(IMG)
+}
 
 /**
  * Define the template
@@ -70,12 +79,16 @@ template.innerHTML = `
     justify-items: center;
   }
 
+  some-tiles::part(backSide) {
+    background-image: url("${BACKSIDE_URL}");
+    background-color: #fff39c;
+  }
+
   #startMenu.hidden, .hidden {
       display: none;
   }
   </style>
 
-  <!-- TODO: Add html here  -->
   <div id="mainWrapper">
     <div id="startMenu">
         <h1>Choose your game:</h1>
@@ -110,6 +123,8 @@ customElements.define('a-memory-game',
       this.attachShadow({ mode: 'open' })
         .appendChild(template.content.cloneNode(true))
 
+      this._cardsInPlay = 0
+
       this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
       this._grid = this.shadowRoot.querySelector('#gridWrapper')
@@ -142,15 +157,15 @@ customElements.define('a-memory-game',
 
         // When choosing which game to start.
         if (event.target.id === 'buttonSmall') {
-            nrOfCards = 4
+            this._cardsInPlay = 4
             this._renderGrid('small')
             // Start timer
         } else if (event.target.id === 'buttonMedium') {
-            nrOfCards = 8
+            this._cardsInPlay = 8
             this._renderGrid('medium')
             // Start timer
         } else if (event.target.id === 'buttonBig') {
-            nrOfCards = 16
+            this._cardsInPlay = 16
             this._renderGrid('big')
             // Start timer
         }
@@ -171,7 +186,7 @@ customElements.define('a-memory-game',
         this._grid.innerHTML = ''
 
         // Reset number of cards in play.
-        nrOfCards = 0
+        this._cardsInPlay = 0
 
         // Display the starting menu.
         this._startMenu.classList.remove('hidden')
@@ -192,7 +207,7 @@ customElements.define('a-memory-game',
             this._grid.appendChild(grid)
 
             // Fill grid up to 2x2.
-            for (let i = 0; i < nrOfCards; i++) {
+            for (let i = 0; i < this._cardsInPlay; i++) {
                     const anImg = document.createElement('some-tiles')
                     grid.appendChild(anImg)
                 }
@@ -204,13 +219,13 @@ customElements.define('a-memory-game',
 
             if (newGrid === 'medium') {
                 // Fill grid up to 4x2.
-                for (let i = 0; i < nrOfCards; i++) {
+                for (let i = 0; i < this._cardsInPlay; i++) {
                     const anImg = document.createElement('some-tiles')
                     grid.appendChild(anImg)
                 }
             } else {
                 // Fill grid up to 4x4.
-                for (let i = 0; i < nrOfCards; i++) {
+                for (let i = 0; i < this._cardsInPlay; i++) {
                     const anImg = document.createElement('some-tiles')
                     grid.appendChild(anImg)
                 }
