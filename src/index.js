@@ -7,7 +7,3 @@
 
 import './components/some-tiles/'
 import './components/a-memory-game/'
-
-const tile = document.createElement('some-tiles')
-
-document.querySelector('body').appendChild(tile)
