@@ -24,47 +24,48 @@ const template = document.createElement('template')
 template.innerHTML = `
   <style> 
   :host {
-      font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-      color: #222222;
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    color: #222222;
   }
 
-  #startMenu, #resultWrapper {
-      display: block;
-      padding: 15px;
-      padding-bottom: 30px;
-      text-align: center;
-      background-color: cadetblue;
+  #startMenu, #resultWrapper, #gridWrapper {
+    display: block;
+    padding: 15px;
+    padding-bottom: 30px;
+    text-align: center;
+    background-color: cadetblue;
+    box-shadow: 0px 10px 30px;
   }
 
   ul {
-      margin: 0px;
-      padding: 0px;
+    margin: 0px;
+    padding: 0px;
   }
 
   li {
-      list-style: none;   
-      display: inline-block;   
+    list-style: none;   
+    display: inline-block;   
   }
 
   button {
-      display: block;
-      padding: 10px;
-      padding-left: 20px;
-      padding-right: 20px;
-      margin: 5px;
-      background-color: #fff39c;
-      border-radius: 5px;  
-      border: 3px solid #CCCCCC; 
+    display: block;
+    padding: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin: 5px;
+    background-color: #fff39c;
+    border-radius: 5px;  
+    border: 3px solid #CCCCCC; 
   }
 
   button:focus, button:hover {
-      outline: none;
-      box-shadow: 0px 10px 30px;
-      border: 3px solid #222222; 
+    outline: none;
+    box-shadow: 0px 10px 30px;
+    border: 3px solid #222222; 
   }
 
   #resetButton {
-      margin: 0 auto;
+    margin: 0 auto;
   }
 
   #grid2 {
@@ -82,6 +83,11 @@ template.innerHTML = `
   some-tiles::part(backSide) {
     background-image: url("${BACKSIDE_URL}");
     background-color: #fff39c;
+  }
+
+  some-tiles {
+    width: 100px;
+    height: 120px;
   }
 
   #startMenu.hidden, .hidden {
@@ -130,8 +136,10 @@ customElements.define('a-memory-game',
       this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
       this._grid = this.shadowRoot.querySelector('#gridWrapper')
+      this._results = this.shadowRoot.querySelector('#resultWrapper')
 
       this._onClick = this._onClick.bind(this)
+      this._startGame = this._startGame.bind(this)
       this._renderGrid = this._renderGrid.bind(this)
     }
 
@@ -139,42 +147,22 @@ customElements.define('a-memory-game',
      * Called when the element has been insterted into the DOM.
      */
     connectedCallback () {
-      this._app.addEventListener('click', this._onClick)
+      this._startMenu.addEventListener('click', this._startGame)
+      this._results.addEventListener('click', this._onClick)
+      this._grid.addEventListener('flippingCard', this._flipCheck)
     }
 
     /**
      * Called when the element has been removed from the DOM.
      */
     disconnectedCallback () {
-      this._app.removeEventListener('click', this._onClick)
+      this._startMenu.removeEventListener('click', this._startGame)
+      this._results.removeEventListener('click', this._onClick)
+      this._grid.removeEventListener('flippingCard', this._flipCheck)
     }
 
-    /**
-     * Takes care of click-events.
-     *
-     * @param {Event} event - A 'click' event.
-     */
     _onClick (event) {
-        console.log('Click event!')
-
-        // When choosing which game to start.
-        if (event.target.id === 'buttonSmall') {
-            this._cardsInPlay = 4
-            this._createImages(this._cardsInPlay/2)
-            this._renderGrid('small')
-            // Start timer
-        } else if (event.target.id === 'buttonMedium') {
-            this._cardsInPlay = 8
-            this._createImages(this._cardsInPlay/2)
-            this._renderGrid('medium')
-            // Start timer
-        } else if (event.target.id === 'buttonBig') {
-            this._cardsInPlay = 16
-            this._createImages(this._cardsInPlay/2)
-            this._renderGrid('big')
-            // Start timer
-        }
-
+        console.log('Resetting the game...')
         // When clicking the reset button.
         if (event.target.id === 'resetButton') {
             this._resetGame()
@@ -182,17 +170,63 @@ customElements.define('a-memory-game',
         }
     }
 
-    _createImages (imagesToUse) {
+    /**
+     * Takes care of click-event for starting the game.
+     *
+     * @param {Event} event - A 'click' event.
+     */
+    _startGame (event) {
+        console.log('Start game!')
+        let gameMode = ''
+
+        // When choosing which game to start.
+        if (event.target.id === 'buttonSmall') {
+            this._cardsInPlay = 4
+            gameMode = 'small'
+        } else if (event.target.id === 'buttonMedium') {
+            this._cardsInPlay = 8
+            gameMode = 'medium'
+        } else if (event.target.id === 'buttonBig') {
+            this._cardsInPlay = 16
+            gameMode = 'big'
+        }
+
+        this._createImages()
+        this._renderGrid(gameMode)
+        // Start timer
+        
+    }
+
+    /**
+     * Handles event when a card is flipped.
+     *
+     * @param {Event} event - 
+     */
+    _flipCheck (event) {
+        console.log('A card was flipped!')
+    }
+
+    /**
+     * Fill array with image URLs in random order.
+     *
+     * @returns {array} - Array with image URLs for this game round.
+     */
+    _createImages () {
+        // Get the number of the first unique image URLs to use.
+        const imagesToUse = this._cardsInPlay/2
+
+        // Then add them to the main images-array.
         for (let i = 0; i < imagesToUse; i++) {
             const image = IMG_URLS[i]
             this._images.push(image)
         }
+        
+        // Copy the images to the array to create the pair.
         const copy = this._images
-
         this._images.push(...copy)
-        console.log(this._images)
+        // console.log(this._images)
 
-        // Now mix them up!
+        // Now mix them up in a random order using the fisher yates algorithm.
         let newPlacing, temporaryPlacing
 
         for (let i = this._images.length-1; i > 0; i--) {
@@ -201,6 +235,8 @@ customElements.define('a-memory-game',
             this._images[i] = this._images[newPlacing]
             this._images[newPlacing] = temporaryPlacing
         }
+
+        return this._images
     }
 
     /**
@@ -219,73 +255,46 @@ customElements.define('a-memory-game',
 
         // Display the starting menu.
         this._startMenu.classList.remove('hidden')
+
+        // And hide the results.
+        // this._results.classList.add('hidden')
     }
 
     /**
      * Render out cards for current game.
      *
-     * @param {string} grid - What type of grid should be displayed.
+     * @param {string} gameMode - What size of grid should be displayed.
      */
-    _renderGrid(newGrid) {
+    _renderGrid(gameMode) {
+        // Hide the starting page.
         // this._startMenu.classList.add('hidden')
+
+        // Create a div for the grid and add grid with size depending on gameMode.
         const grid = document.createElement('div')
 
-        if (newGrid === 'small') {
+        if (gameMode === 'small') {
+            // grid Id styled with number of columns.
             grid.setAttribute('id', 'grid2')
 
             this._grid.appendChild(grid)
-
-            // Fill grid up to 2x2.
-            for (let i = 0; i < this._cardsInPlay; i++) {
-                    const tile = document.createElement('some-tiles')
-                    const image = document.createElement('img')
-                    const srcLink = this._images[i]
-                    console.log(srcLink)
-                    image.setAttribute('src', `${srcLink}`)
-
-                    tile.appendChild(image)
-                    // console.log('What image?' + this._images[i].src)
-                    // console.log(this._images)
-                    // tile.appendChild(this._images[i].src)
-                    grid.appendChild(tile)
-                }
         } else {
-            // Both medium and big grids has the same nr of columns.
+            // Both the medium and big gameMode has the same nr of columns.
             grid.setAttribute('id', 'grid4')
 
             this._grid.appendChild(grid)
+        }
 
-            if (newGrid === 'medium') {
-                // Fill grid up to 4x2.
-                for (let i = 0; i < this._cardsInPlay; i++) {
-                    const tile = document.createElement('some-tiles')
-                    const image = document.createElement('img')
-                    const srcLink = this._images[i]
-                    console.log(srcLink)
-                    image.setAttribute('src', `${srcLink}`)
+        // Create some-tiles and img elements and fill the grid with them.
+        for (let i = 0; i < this._cardsInPlay; i++) {
+            const tile = document.createElement('some-tiles')
+            const image = document.createElement('img')
 
-                    tile.appendChild(image)
-                    // console.log('What image?' + this._images[i].src)
-                    // console.log(this._images)
-                    // tile.appendChild(this._images[i].src)
-                    grid.appendChild(tile)
-                }
-            } else {
-                // Fill grid up to 4x4.
-                for (let i = 0; i < this._cardsInPlay; i++) {
-                    const tile = document.createElement('some-tiles')
-                    const image = document.createElement('img')
-                    const srcLink = this._images[i]
-                    console.log(srcLink)
-                    image.setAttribute('src', `${srcLink}`)
+            // Use the links from the image-array to set the image's src.
+            const srcLink = this._images[i]
+            image.setAttribute('src', `${srcLink}`)
 
-                    tile.appendChild(image)
-                    // console.log('What image?' + this._images[i].src)
-                    // console.log(this._images)
-                    // tile.appendChild(this._images[i].src)
-                    grid.appendChild(tile)
-                }
-            }
-        } 
+            tile.appendChild(image)
+            grid.appendChild(tile)
+        }
     }
  })
