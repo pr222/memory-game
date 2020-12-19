@@ -162,9 +162,9 @@ customElements.define('a-memory-game',
      */
     connectedCallback () {
       this._startMenu.addEventListener('click', this._chooseGame)
+      this.addEventListener('startGame', this._startGame)
       this._results.addEventListener('click', this._resetGame)
       this._grid.addEventListener('flippingCard', this._flipCheck)
-      this.addEventListener('startGame', this._startGame)
       this.addEventListener('matched', this._matched)
       this.addEventListener('notMatched', this._notMatched)
       this.addEventListener('gameover', this._gameover)
@@ -175,9 +175,9 @@ customElements.define('a-memory-game',
      */
     disconnectedCallback () {
       this._startMenu.removeEventListener('click', this._chooseGame)
+      this.removeEventListener('startGame', this._startGame)
       this._results.removeEventListener('click', this._resetGame)
       this._grid.removeEventListener('flippingCard', this._flipCheck)
-      this.removeEventListener('startGame', this._startGame)
       this.removeEventListener('matched', this._matched)
       this.removeEventListener('notMatched', this._notMatched)
       this.removeEventListener('gameover', this._gameover)
@@ -222,6 +222,33 @@ customElements.define('a-memory-game',
       this._renderGrid(`${event.detail.mode}`)
 
       // Start timer
+    }
+
+    /**
+     * Reset the game and go back to the starting menu.
+     *
+     * @param {Event} event - reset the game round.
+     */
+    _resetGame (event) {
+      if (event.target === this._resetButton) {
+        // Remove all  html within the grid wrapper.
+        this._grid.innerHTML = ''
+
+        // Reset number of cards in play.
+        this._cardsInPlay = 0
+
+        // Empty the array of current images.
+        this._images = []
+
+        // Reset number of attempts.
+        this._nrOfAttempts = 0
+
+        // Display the starting menu.
+        this._startMenu.classList.remove('hidden')
+
+        // And hide the results.
+        this._results.classList.add('hidden')
+      }
     }
 
     /**
@@ -288,7 +315,7 @@ customElements.define('a-memory-game',
       const tiles = event.detail.tiles
 
       // Reset cards on the board.
-      setTimeout(function () {
+      setTimeout(() => {
         tiles.forEach(tile => tile.removeAttribute('disabled', ''))
         tiles.forEach(tile => tile.removeAttribute('faceup', ''))
       }, 500)
@@ -330,7 +357,6 @@ customElements.define('a-memory-game',
       // Copy the images to the array to create the pair.
       const copy = this._images
       this._images.push(...copy)
-      // console.log(this._images)
 
       // Now mix them up in a random order using the fisher yates algorithm.
       let newPlacing, temporaryPlacing
@@ -343,33 +369,6 @@ customElements.define('a-memory-game',
       }
 
       return this._images
-    }
-
-    /**
-     * Reset the game and go back to the starting menu.
-     *
-     * @param {Event} event - reset the game round.
-     */
-    _resetGame (event) {
-      if (event.target === this._resetButton) {
-        // Remove all  html within the grid wrapper.
-        this._grid.innerHTML = ''
-
-        // Reset number of cards in play.
-        this._cardsInPlay = 0
-
-        // Empty the array of current images.
-        this._images = []
-
-        // Reset number of attempts.
-        this._nrOfAttempts = 0
-
-        // Display the starting menu.
-        this._startMenu.classList.remove('hidden')
-
-        // And hide the results.
-        this._results.classList.add('hidden')
-      }
     }
 
     /**
