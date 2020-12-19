@@ -17,6 +17,8 @@ for (let i = 1; i <= maxImages; i++) {
   IMG_URLS.push(IMG)
 }
 
+let timer
+
 /**
  * Define the template
  */
@@ -32,7 +34,7 @@ template.innerHTML = `
   #startMenu, #resultWrapper, #gridWrapper {
     display: block;
     padding: 15px;
-    padding-bottom: 30px;
+    padding-bottom: 25px;
     text-align: center;
     background-color: cadetblue;
     box-shadow: 0px 10px 30px;
@@ -57,6 +59,7 @@ template.innerHTML = `
     background-color: #fff39c;
     border-radius: 5px;  
     border: 3px solid #CCCCCC; 
+    font-size: 1.3rem;
   }
 
   button:focus, button:hover {
@@ -67,6 +70,17 @@ template.innerHTML = `
 
   #resetButton {
     margin: 0 auto;
+  }
+
+  .cred {
+    color: #4f4f4f;
+    margin-top: 25px;
+  }
+
+  .result {
+    font-weight: bold;
+    font-size: 1.5rem;
+    color: #6b1010;
   }
 
   #grid2 {
@@ -104,7 +118,7 @@ template.innerHTML = `
   <div id="mainWrapper">
     <h1>MEMORY GAME</h1>
     <div id="startMenu">
-        <h1>Choose game mode:</h1>
+        <h1>Choose a game mode:</h1>
         <ul>
             <li><button type="button" id="buttonSmall">2x2</button></li>
             <li><button type="button" id="buttonMedium">4x2</button></li>
@@ -114,9 +128,10 @@ template.innerHTML = `
     <div id="resultWrapper" class="hidden">
         <h1>You made it!</h1>
         <h2>It took you:</h2>
-        <p id="attempts"></p>
-        <p id="time"></p>
+        <p class="result" id="attempts"></p>
+        <p class="result" id="time"></p>
         <button type="button" id="resetButton">Reset</button>
+        <p class="cred">Illustrations by: Moa Alfredsson</p>
     </div>
     <div id="gridWrapper" class="hidden"></div>
   </div>
@@ -140,18 +155,23 @@ customElements.define('a-memory-game',
       this.attachShadow({ mode: 'open' })
         .appendChild(template.content.cloneNode(true))
 
+      // Properties for the game to keep track of.
       this._cardsInPlay = 0
       this._images = []
       this._nrOfAttempts = 0
+      this._time = 0
 
+      // Select elements from the shadowroot.
       this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
       this._grid = this.shadowRoot.querySelector('#gridWrapper')
       this._results = this.shadowRoot.querySelector('#resultWrapper')
       this._resetButton = this.shadowRoot.querySelector('#resetButton')
 
+      // Bindings needed for reaching this shadow.
       this._chooseGame = this._chooseGame.bind(this)
       this._startGame = this._startGame.bind(this)
+      this._startTimer = this._startTimer.bind(this)
       this._resetGame = this._resetGame.bind(this)
       this._renderGrid = this._renderGrid.bind(this)
       this._flipCheck = this._flipCheck.bind(this)
@@ -221,7 +241,11 @@ customElements.define('a-memory-game',
       // Render grid and add images to it.
       this._renderGrid(`${event.detail.mode}`)
 
+      // Make sure timer always starts from 0
+      // Reset the timer
+      timer = null
       // Start timer
+      this._startTimer()
     }
 
     /**
@@ -230,29 +254,25 @@ customElements.define('a-memory-game',
      * @param {Event} event - reset the game round.
      */
     _resetGame (event) {
+      // Make sure the reset button was what was clicked.
       if (event.target === this._resetButton) {
-        // Remove all  html within the grid wrapper.
+        // Remove all html within the grid wrapper.
         this._grid.innerHTML = ''
 
-        // Reset number of cards in play.
+        // Resets for the next round.
         this._cardsInPlay = 0
-
-        // Empty the array of current images.
         this._images = []
-
-        // Reset number of attempts.
         this._nrOfAttempts = 0
+        this._time = 0
 
-        // Display the starting menu.
+        // Display the starting menu and hide the results
         this._startMenu.classList.remove('hidden')
-
-        // And hide the results.
         this._results.classList.add('hidden')
       }
     }
 
     /**
-     * Handles event when a card is flipped.
+     * Handles event when a card is flipped faceup.
      *
      * @param {Event} event - a `flippingCard` event.
      */
@@ -267,16 +287,17 @@ customElements.define('a-memory-game',
         // First card in attempt, add increase nr of attempts.
         this._nrOfAttempts += 1
       } else if (faceupTiles.length === 2) {
+        let matchedResult
         // Compare the two faced up cards for a match.
         if (faceupTiles[0].isEqualNode(faceupTiles[1])) {
-          this.dispatchEvent(new CustomEvent('matched', { bubbles: true, detail: { tiles: faceupTiles } }))
+          matchedResult = 'matched'
         } else {
-          this.dispatchEvent(new CustomEvent('notMatched', { bubbles: true, detail: { tiles: faceupTiles } }))
+          matchedResult = 'notMatched'
         }
+        this.dispatchEvent(new CustomEvent(matchedResult, { bubbles: true, detail: { tiles: faceupTiles } }))
       } else {
         // Flip back all cards if trying to flip more than 2 at one attempt.
-        faceupTiles.forEach(tile => tile.removeAttribute('disabled', ''))
-        faceupTiles.forEach(tile => tile.removeAttribute('faceup', ''))
+        this._flipBackCard(faceupTiles)
       }
     }
 
@@ -290,19 +311,18 @@ customElements.define('a-memory-game',
       const tiles = event.detail.tiles
 
       // Reset cards on the board and hide the pair.
-      setTimeout(() => {
-        tiles.forEach(tile => tile.removeAttribute('disabled', ''))
-        tiles.forEach(tile => tile.removeAttribute('faceup', ''))
+      window.setTimeout(() => {
+        this._flipBackCard(tiles)
         tiles.forEach(tile => tile.setAttribute('hidden', ''))
 
-        // Was this the last pair?
-        // Get all hidden images and check if they as many as cards in play.
+        // Was this the last matched pair?
+        // Get all hidden images and check if they are as many as cards in play.
         const hidden = this._grid.querySelectorAll('[hidden]')
 
         if (hidden.length === this._cardsInPlay) {
           this.dispatchEvent(new CustomEvent('gameover', { bubbles: true }))
         }
-      }, 1000)
+      }, 1500)
     }
 
     /**
@@ -315,28 +335,63 @@ customElements.define('a-memory-game',
       const tiles = event.detail.tiles
 
       // Reset cards on the board.
-      setTimeout(() => {
-        tiles.forEach(tile => tile.removeAttribute('disabled', ''))
-        tiles.forEach(tile => tile.removeAttribute('faceup', ''))
-      }, 500)
+      window.setTimeout(() => {
+        this._flipBackCard(tiles)
+      }, 1000)
     }
 
     /**
-     * Game ove event.
+     * Handle results when the game is over.
      *
-     * @param {Event} event - game over
+     * @param {Event} event - when the game is over
      */
     _gameover (event) {
       // Stop timer
+      clearInterval(timer)
 
-      // Hide the grid.
+      // Split the time result in minutes and seconds.
+      let seconds, minutes
+
+      if (this._time > 60) {
+        minutes = Math.floor(this._time / 60)
+        seconds = this._time - (minutes * 60)
+      } else {
+        minutes = 0
+        seconds = this._time
+      }
+
+      // Hide the grid and display the results page.
       this._grid.classList.add('hidden')
-
-      // Display the results page.
       this._results.classList.remove('hidden')
 
+      // Add the attempts to the page.
       const attempts = this._results.querySelector('#attempts')
-      attempts.textContent = `${this._nrOfAttempts} attempts`
+      attempts.textContent = `${this._nrOfAttempts} attempts in`
+
+      // Add the time to the page.
+      const timeResult = this._results.querySelector('#time')
+      timeResult.textContent = `${minutes} minutes and ${seconds} seconds`
+    }
+
+    /**
+     * Flip back cards face down and make them usable again.
+     *
+     * @param {Array} tiles - An array of tiles to flip.
+     */
+    _flipBackCard (tiles) {
+      tiles.forEach(tile => tile.removeAttribute('disabled', ''))
+      tiles.forEach(tile => tile.removeAttribute('faceup', ''))
+    }
+
+    /**
+     * Start timer for this game round.
+     *
+     */
+    _startTimer () {
+      timer = setInterval(() => {
+        this._time++
+        // console.log(this._time)
+      }, 1000)
     }
 
     /**
