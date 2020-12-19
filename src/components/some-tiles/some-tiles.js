@@ -127,7 +127,7 @@ customElements.define('some-tiles',
         this._tile.hidden = newValue
       } else if (name === 'disabled') {
         this._tile.disabled = newValue
-        this._tile.tabIndex = -3
+        this.blur()
       } else if (name === 'faceup') {
         this._tile.faceup = newValue
       }

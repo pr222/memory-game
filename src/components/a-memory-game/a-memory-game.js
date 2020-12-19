@@ -13,8 +13,8 @@ const IMG_URLS = []
 const maxImages = 8
 
 for (let i = 1; i <= maxImages; i++) {
-    const IMG = (new URL(`img/memory-game-0${i}.png`, import.meta.url)).href
-    IMG_URLS.push(IMG)
+  const IMG = (new URL(`img/memory-game-0${i}.png`, import.meta.url)).href
+  IMG_URLS.push(IMG)
 }
 
 /**
@@ -26,6 +26,7 @@ template.innerHTML = `
   :host {
     font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
     color: #222222;
+    text-align: center;
   }
 
   #startMenu, #resultWrapper, #gridWrapper {
@@ -90,25 +91,34 @@ template.innerHTML = `
     height: 120px;
   }
 
-  #startMenu.hidden, .hidden {
+  some-tiles[disabled] {
+    border: 2px dotted #CCCCCC;
+    opacity: 1;
+  }
+
+  #startMenu.hidden, #resultWrapper.hidden, #gridWrapper.hidden {
       display: none;
   }
   </style>
 
   <div id="mainWrapper">
+    <h1>MEMORY GAME</h1>
     <div id="startMenu">
-        <h1>Choose your game:</h1>
+        <h1>Choose game mode:</h1>
         <ul>
             <li><button type="button" id="buttonSmall">2x2</button></li>
             <li><button type="button" id="buttonMedium">4x2</button></li>
             <li><button type="button" id="buttonBig">4x4</button></li>
         </ul>
     </div>
-    <div id="resultWrapper">
+    <div id="resultWrapper" class="hidden">
         <h1>You made it!</h1>
+        <h2>It took you:</h2>
+        <p id="attempts"></p>
+        <p id="time"></p>
         <button type="button" id="resetButton">Reset</button>
     </div>
-    <div id="gridWrapper"></div>
+    <div id="gridWrapper" class="hidden"></div>
   </div>
 `
 
@@ -132,42 +142,45 @@ customElements.define('a-memory-game',
 
       this._cardsInPlay = 0
       this._images = []
+      this._nrOfAttempts = 0
 
       this._app = this.shadowRoot.querySelector('#mainWrapper')
       this._startMenu = this.shadowRoot.querySelector('#startMenu')
       this._grid = this.shadowRoot.querySelector('#gridWrapper')
       this._results = this.shadowRoot.querySelector('#resultWrapper')
+      this._resetButton = this.shadowRoot.querySelector('#resetButton')
 
-      this._onClick = this._onClick.bind(this)
+      this._chooseGame = this._chooseGame.bind(this)
       this._startGame = this._startGame.bind(this)
+      this._resetGame = this._resetGame.bind(this)
       this._renderGrid = this._renderGrid.bind(this)
+      this._flipCheck = this._flipCheck.bind(this)
     }
 
     /**
      * Called when the element has been insterted into the DOM.
      */
     connectedCallback () {
-      this._startMenu.addEventListener('click', this._startGame)
-      this._results.addEventListener('click', this._onClick)
+      this._startMenu.addEventListener('click', this._chooseGame)
+      this._results.addEventListener('click', this._resetGame)
       this._grid.addEventListener('flippingCard', this._flipCheck)
+      this.addEventListener('startGame', this._startGame)
+      this.addEventListener('matched', this._matched)
+      this.addEventListener('notMatched', this._notMatched)
+      this.addEventListener('gameover', this._gameover)
     }
 
     /**
      * Called when the element has been removed from the DOM.
      */
     disconnectedCallback () {
-      this._startMenu.removeEventListener('click', this._startGame)
-      this._results.removeEventListener('click', this._onClick)
+      this._startMenu.removeEventListener('click', this._chooseGame)
+      this._results.removeEventListener('click', this._resetGame)
       this._grid.removeEventListener('flippingCard', this._flipCheck)
-    }
-
-    _onClick (event) {
-        console.log('Resetting the game...')
-        // When clicking the reset button.
-        if (event.target.id === 'resetButton') {
-            this._resetGame()
-            // Stop timer
-        }
+      this.removeEventListener('startGame', this._startGame)
+      this.removeEventListener('matched', this._matched)
+      this.removeEventListener('notMatched', this._notMatched)
+      this.removeEventListener('gameover', this._gameover)
     }
 
     /**
@@ -175,75 +188,170 @@ customElements.define('a-memory-game',
      *
      * @param {Event} event - A 'click' event.
      */
+    _chooseGame (event) {
+      let gameMode = ''
+
+      // When choosing which game to start.
+      if (event.target.id === 'buttonSmall') {
+        this._cardsInPlay = 4
+        gameMode = 'small'
+      } else if (event.target.id === 'buttonMedium') {
+        this._cardsInPlay = 8
+        gameMode = 'medium'
+      } else if (event.target.id === 'buttonBig') {
+        this._cardsInPlay = 16
+        gameMode = 'big'
+      } else {
+        // Do nothing if accidentally clicking on something else than the buttons.
+        return
+      }
+
+      this.dispatchEvent(new CustomEvent('startGame', { bubbles: true, composed: true, detail: { mode: gameMode } }))
+    }
+
+    /**
+     * Taking care of the start of the game.
+     *
+     * @param {Event} event - Event starting the game.
+     */
     _startGame (event) {
-        console.log('Start game!')
-        let gameMode = ''
+      // Prepare all image URLs for this game round.
+      this._createImages()
 
-        // When choosing which game to start.
-        if (event.target.id === 'buttonSmall') {
-            this._cardsInPlay = 4
-            gameMode = 'small'
-        } else if (event.target.id === 'buttonMedium') {
-            this._cardsInPlay = 8
-            gameMode = 'medium'
-        } else if (event.target.id === 'buttonBig') {
-            this._cardsInPlay = 16
-            gameMode = 'big'
-        }
+      // Render grid and add images to it.
+      this._renderGrid(`${event.detail.mode}`)
 
-        this._createImages()
-        this._renderGrid(gameMode)
-        // Start timer
-        
+      // Start timer
     }
 
     /**
      * Handles event when a card is flipped.
      *
-     * @param {Event} event - 
+     * @param {Event} event - a `flippingCard` event.
      */
     _flipCheck (event) {
-        console.log('A card was flipped!')
+      // Get all faced up cards.
+      const faceupTiles = this._grid.querySelectorAll('[faceup]')
+
+      // Prevent user from flipping back a card during attempt.
+      faceupTiles.forEach(tile => tile.setAttribute('disabled', ''))
+
+      if (faceupTiles.length === 1) {
+        // First card in attempt, add increase nr of attempts.
+        this._nrOfAttempts += 1
+      } else if (faceupTiles.length === 2) {
+        // Compare the two faced up cards for a match.
+        if (faceupTiles[0].isEqualNode(faceupTiles[1])) {
+          this.dispatchEvent(new CustomEvent('matched', { bubbles: true, detail: { tiles: faceupTiles } }))
+        } else {
+          this.dispatchEvent(new CustomEvent('notMatched', { bubbles: true, detail: { tiles: faceupTiles } }))
+        }
+      } else {
+        // Flip back all cards if trying to flip more than 2 at one attempt.
+        faceupTiles.forEach(tile => tile.removeAttribute('disabled', ''))
+        faceupTiles.forEach(tile => tile.removeAttribute('faceup', ''))
+      }
+    }
+
+    /**
+     * When a pair is matching.
+     *
+     * @param {Event} event - matching cards event.
+     */
+    _matched (event) {
+      // Get the pair provided in event details.
+      const tiles = event.detail.tiles
+
+      // Reset cards on the board and hide the pair.
+      setTimeout(() => {
+        tiles.forEach(tile => tile.removeAttribute('disabled', ''))
+        tiles.forEach(tile => tile.removeAttribute('faceup', ''))
+        tiles.forEach(tile => tile.setAttribute('hidden', ''))
+
+        // Was this the last pair?
+        // Get all hidden images and check if they as many as cards in play.
+        const hidden = this._grid.querySelectorAll('[hidden]')
+
+        if (hidden.length === this._cardsInPlay) {
+          this.dispatchEvent(new CustomEvent('gameover', { bubbles: true }))
+        }
+      }, 1000)
+    }
+
+    /**
+     * When a pair is not matching.
+     *
+     * @param {Event} event - not matching cards event.
+     */
+    _notMatched (event) {
+      // Get the pair provided in event details.
+      const tiles = event.detail.tiles
+
+      // Reset cards on the board.
+      setTimeout(function () {
+        tiles.forEach(tile => tile.removeAttribute('disabled', ''))
+        tiles.forEach(tile => tile.removeAttribute('faceup', ''))
+      }, 500)
+    }
+
+    /**
+     * Game ove event.
+     *
+     * @param {Event} event - game over
+     */
+    _gameover (event) {
+      // Stop timer
+
+      // Hide the grid.
+      this._grid.classList.add('hidden')
+
+      // Display the results page.
+      this._results.classList.remove('hidden')
+
+      const attempts = this._results.querySelector('#attempts')
+      attempts.textContent = `${this._nrOfAttempts} attempts`
     }
 
     /**
      * Fill array with image URLs in random order.
      *
-     * @returns {array} - Array with image URLs for this game round.
+     * @returns {Array} - Array with image URLs for this game round.
      */
     _createImages () {
-        // Get the number of the first unique image URLs to use.
-        const imagesToUse = this._cardsInPlay/2
+      // Get the number of the first unique image URLs to use.
+      const imagesToUse = this._cardsInPlay / 2
 
-        // Then add them to the main images-array.
-        for (let i = 0; i < imagesToUse; i++) {
-            const image = IMG_URLS[i]
-            this._images.push(image)
-        }
-        
-        // Copy the images to the array to create the pair.
-        const copy = this._images
-        this._images.push(...copy)
-        // console.log(this._images)
+      // Then add them to the main images-array.
+      for (let i = 0; i < imagesToUse; i++) {
+        const image = IMG_URLS[i]
+        this._images.push(image)
+      }
 
-        // Now mix them up in a random order using the fisher yates algorithm.
-        let newPlacing, temporaryPlacing
+      // Copy the images to the array to create the pair.
+      const copy = this._images
+      this._images.push(...copy)
+      // console.log(this._images)
 
-        for (let i = this._images.length-1; i > 0; i--) {
-            newPlacing = Math.floor(Math.random() * (i + 1))
-            temporaryPlacing = this._images[i]
-            this._images[i] = this._images[newPlacing]
-            this._images[newPlacing] = temporaryPlacing
-        }
+      // Now mix them up in a random order using the fisher yates algorithm.
+      let newPlacing, temporaryPlacing
 
-        return this._images
+      for (let i = this._images.length - 1; i > 0; i--) {
+        newPlacing = Math.floor(Math.random() * (i + 1))
+        temporaryPlacing = this._images[i]
+        this._images[i] = this._images[newPlacing]
+        this._images[newPlacing] = temporaryPlacing
+      }
+
+      return this._images
     }
 
     /**
      * Reset the game and go back to the starting menu.
      *
+     * @param {Event} event - reset the game round.
      */
-    _resetGame () {
+    _resetGame (event) {
+      if (event.target === this._resetButton) {
         // Remove all  html within the grid wrapper.
         this._grid.innerHTML = ''
 
@@ -253,11 +361,15 @@ customElements.define('a-memory-game',
         // Empty the array of current images.
         this._images = []
 
+        // Reset number of attempts.
+        this._nrOfAttempts = 0
+
         // Display the starting menu.
         this._startMenu.classList.remove('hidden')
 
         // And hide the results.
-        // this._results.classList.add('hidden')
+        this._results.classList.add('hidden')
+      }
     }
 
     /**
@@ -265,36 +377,39 @@ customElements.define('a-memory-game',
      *
      * @param {string} gameMode - What size of grid should be displayed.
      */
-    _renderGrid(gameMode) {
-        // Hide the starting page.
-        // this._startMenu.classList.add('hidden')
+    _renderGrid (gameMode) {
+      // Hide the starting page.
+      this._startMenu.classList.add('hidden')
 
-        // Create a div for the grid and add grid with size depending on gameMode.
-        const grid = document.createElement('div')
+      // Display the grid wrapper.
+      this._grid.classList.remove('hidden')
 
-        if (gameMode === 'small') {
-            // grid Id styled with number of columns.
-            grid.setAttribute('id', 'grid2')
+      // Create a div for the grid and add grid with size depending on gameMode.
+      const grid = document.createElement('div')
 
-            this._grid.appendChild(grid)
-        } else {
-            // Both the medium and big gameMode has the same nr of columns.
-            grid.setAttribute('id', 'grid4')
+      if (gameMode === 'small') {
+        // grid Id styled with number of columns.
+        grid.setAttribute('id', 'grid2')
 
-            this._grid.appendChild(grid)
-        }
+        this._grid.appendChild(grid)
+      } else {
+        // Both the medium and big gameMode has the same nr of columns.
+        grid.setAttribute('id', 'grid4')
 
-        // Create some-tiles and img elements and fill the grid with them.
-        for (let i = 0; i < this._cardsInPlay; i++) {
-            const tile = document.createElement('some-tiles')
-            const image = document.createElement('img')
+        this._grid.appendChild(grid)
+      }
 
-            // Use the links from the image-array to set the image's src.
-            const srcLink = this._images[i]
-            image.setAttribute('src', `${srcLink}`)
+      // Create some-tiles and img elements to fill the grid with.
+      for (let i = 0; i < this._cardsInPlay; i++) {
+        const tile = document.createElement('some-tiles')
+        const image = document.createElement('img')
 
-            tile.appendChild(image)
-            grid.appendChild(tile)
-        }
+        // Use the links from the image-array to set the image's src.
+        const srcLink = this._images[i]
+        image.setAttribute('src', `${srcLink}`)
+
+        tile.appendChild(image)
+        grid.appendChild(tile)
+      }
     }
- })
+  })
