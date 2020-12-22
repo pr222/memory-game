@@ -157,7 +157,7 @@ customElements.define('a-memory-game',
 
       // Properties for the game to keep track of.
       this._cardsInPlay = 0
-      this._images = []
+      this._imageUrls = []
       this._nrOfAttempts = 0
       this._time = 0
 
@@ -185,8 +185,8 @@ customElements.define('a-memory-game',
       this.addEventListener('startGame', this._startGame)
       this._results.addEventListener('click', this._resetGame)
       this._grid.addEventListener('flippingCard', this._flipCheck)
-      this.addEventListener('matched', this._matched)
-      this.addEventListener('notMatched', this._notMatched)
+      this.addEventListener('matched', this._match)
+      this.addEventListener('notMatched', this._match)
       this.addEventListener('gameover', this._gameover)
     }
 
@@ -198,8 +198,8 @@ customElements.define('a-memory-game',
       this.removeEventListener('startGame', this._startGame)
       this._results.removeEventListener('click', this._resetGame)
       this._grid.removeEventListener('flippingCard', this._flipCheck)
-      this.removeEventListener('matched', this._matched)
-      this.removeEventListener('notMatched', this._notMatched)
+      this.removeEventListener('matched', this._match)
+      this.removeEventListener('notMatched', this._match)
       this.removeEventListener('gameover', this._gameover)
     }
 
@@ -236,14 +236,11 @@ customElements.define('a-memory-game',
      */
     _startGame (event) {
       // Prepare all image URLs for this game round.
-      this._createImages()
+      this._createImageUrls()
 
       // Render grid and add images to it.
       this._renderGrid(`${event.detail.mode}`)
 
-      // Make sure timer always starts from 0
-      // Reset the timer
-      timer = null
       // Start timer
       this._startTimer()
     }
@@ -261,11 +258,11 @@ customElements.define('a-memory-game',
 
         // Resets for the next round.
         this._cardsInPlay = 0
-        this._images = []
+        this._imageUrls = []
         this._nrOfAttempts = 0
         this._time = 0
 
-        // Display the starting menu and hide the results
+        // Display the starting menu and hide the results.
         this._startMenu.classList.remove('hidden')
         this._results.classList.add('hidden')
       }
@@ -306,38 +303,36 @@ customElements.define('a-memory-game',
      *
      * @param {Event} event - matching cards event.
      */
-    _matched (event) {
+    _match (event) {
       // Get the pair provided in event details.
       const tiles = event.detail.tiles
 
-      // Reset cards on the board and hide the pair.
+      let delay
+
+      if (event.type === 'matched') {
+        delay = 1500
+      } else if (event.type === 'notMatched') {
+        delay = 1000
+      }
+
       window.setTimeout(() => {
+        // Reset the pair.
         this._flipBackCard(tiles)
-        tiles.forEach(tile => tile.setAttribute('hidden', ''))
 
-        // Was this the last matched pair?
-        // Get all hidden images and check if they are as many as cards in play.
-        const hidden = this._grid.querySelectorAll('[hidden]')
+        // Hide the pair if it is a matching pair.
+        if (event.type === 'matched') {
+          tiles.forEach(tile => tile.setAttribute('hidden', ''))
 
-        if (hidden.length === this._cardsInPlay) {
-          this.dispatchEvent(new CustomEvent('gameover', { bubbles: true }))
+          // Was this the last matched pair?
+          // Get all hidden images and check if all cards in play are hidden.
+          // If so, the game is now over.
+          const hidden = this._grid.querySelectorAll('[hidden]')
+
+          if (hidden.length === this._cardsInPlay) {
+            this.dispatchEvent(new CustomEvent('gameover', { bubbles: true }))
+          }
         }
-      }, 1500)
-    }
-
-    /**
-     * When a pair is not matching.
-     *
-     * @param {Event} event - not matching cards event.
-     */
-    _notMatched (event) {
-      // Get the pair provided in event details.
-      const tiles = event.detail.tiles
-
-      // Reset cards on the board.
-      window.setTimeout(() => {
-        this._flipBackCard(tiles)
-      }, 1000)
+      }, delay)
     }
 
     /**
@@ -399,31 +394,31 @@ customElements.define('a-memory-game',
      *
      * @returns {Array} - Array with image URLs for this game round.
      */
-    _createImages () {
+    _createImageUrls () {
       // Get the number of the first unique image URLs to use.
       const imagesToUse = this._cardsInPlay / 2
 
       // Then add them to the main images-array.
       for (let i = 0; i < imagesToUse; i++) {
         const image = IMG_URLS[i]
-        this._images.push(image)
+        this._imageUrls.push(image)
       }
 
       // Copy the images to the array to create the pair.
-      const copy = this._images
-      this._images.push(...copy)
+      const copy = this._imageUrls
+      this._imageUrls.push(...copy)
 
       // Now mix them up in a random order using the fisher yates algorithm.
       let newPlacing, temporaryPlacing
 
-      for (let i = this._images.length - 1; i > 0; i--) {
+      for (let i = this._imageUrls.length - 1; i > 0; i--) {
         newPlacing = Math.floor(Math.random() * (i + 1))
-        temporaryPlacing = this._images[i]
-        this._images[i] = this._images[newPlacing]
-        this._images[newPlacing] = temporaryPlacing
+        temporaryPlacing = this._imageUrls[i]
+        this._imageUrls[i] = this._imageUrls[newPlacing]
+        this._imageUrls[newPlacing] = temporaryPlacing
       }
 
-      return this._images
+      return this._imageUrls
     }
 
     /**
@@ -432,10 +427,8 @@ customElements.define('a-memory-game',
      * @param {string} gameMode - What size of grid should be displayed.
      */
     _renderGrid (gameMode) {
-      // Hide the starting page.
+      // Hide the starting page and display grid wrapper.
       this._startMenu.classList.add('hidden')
-
-      // Display the grid wrapper.
       this._grid.classList.remove('hidden')
 
       // Create a div for the grid and add grid with size depending on gameMode.
@@ -459,7 +452,7 @@ customElements.define('a-memory-game',
         const image = document.createElement('img')
 
         // Use the links from the image-array to set the image's src.
-        const srcLink = this._images[i]
+        const srcLink = this._imageUrls[i]
         image.setAttribute('src', `${srcLink}`)
 
         tile.appendChild(image)
